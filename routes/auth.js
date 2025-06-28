@@ -6,7 +6,7 @@ import User from "../models/User.js";
 const router = express.Router();
 
 // Đăng ký
-router.post("https://backend-production-3828.up.railway.app/register", async (req, res) => {
+router.post("/register", async (req, res) => {
   const { username, password, email, tuVi, role } = req.body;
   if (!username || !password) return res.status(400).json({ success: false, message: "Thiếu tên tài khoản hoặc mật khẩu" });
   const exist = await User.findOne({ username });
@@ -27,7 +27,7 @@ router.post("https://backend-production-3828.up.railway.app/register", async (re
 });
 
 // Đăng nhập
-router.post("https://backend-production-3828.up.railway.app/login", async (req, res) => {
+router.post("/login", async (req, res) => {
   const { username, password } = req.body;
   if (!username || !password) return res.status(400).json({ success: false, message: "Thiếu tên tài khoản hoặc mật khẩu" });
   const user = await User.findOne({ username });
@@ -39,7 +39,7 @@ router.post("https://backend-production-3828.up.railway.app/login", async (req, 
 });
 
 // Đổi mật khẩu
-router.post("https://backend-production-3828.up.railway.app/change-password", async (req, res) => {
+router.post("/change-password", async (req, res) => {
   const { username, oldPassword, newPassword } = req.body;
   if (!username || !oldPassword || !newPassword) return res.status(400).json({ success: false, message: "Thiếu thông tin" });
   const user = await User.findOne({ username });
