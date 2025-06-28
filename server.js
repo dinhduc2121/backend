@@ -16,7 +16,10 @@ console.log("Environment variables:", {
 
 const app = express();
 app.use(cors({
-  origin: "http://localhost:5173",
+   origin: [
+    "http://localhost:5173",
+    "https://truyentranh-six.vercel.app"
+  ],
   methods: ["GET", "POST", "PUT", "DELETE"],
   allowedHeaders: ["Content-Type", "Authorization"]
 }));
@@ -34,6 +37,7 @@ app.use("/api/comment", commentRoutes);
 
 const PORT = process.env.PORT || 3001;
 
+
 mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
   .then(() => {
     console.log("MongoDB connected successfully");
@@ -43,3 +47,5 @@ mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopol
     console.error("MongoDB connection error:", err.stack);
     process.exit(1);
   });
+
+  
