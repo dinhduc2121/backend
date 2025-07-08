@@ -1,11 +1,73 @@
-import mongoose from "mongoose";
+import { DataTypes } from "sequelize";
+import { sequelize } from "../server.js";
+import { User } from "./User.js";
 
-const commentSchema = new mongoose.Schema({
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
-  username: { type: String, required: true },
-  comicSlug: { type: String, required: true },
-  content: { type: String, required: true },
-  createdAt: { type: Date, default: Date.now }
-}, { timestamps: true });
+export const Comment = sequelize.define("Comment", {
+  userId: {
+    type: DataTypes.INTEGER,
+    allowNull: false
+  },
+  comicSlug: {
+    type: DataTypes.STRING,
+    allowNull: false
+  },
+  content: {
+    type: DataTypes.TEXT,
+    allowNull: false
+  },
 
-export default mongoose.model("Comment", commentSchema);
+  // Tên hiển thị đặc biệt
+  displayName: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
+
+  // URL hoặc ID khung avatar
+  avatarFrame: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
+
+  // Cảnh giới tại thời điểm bình luận
+  realm: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
+
+  // Màu chữ riêng
+  nameColor: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
+
+  // Hiệu ứng chữ (glow, rainbow, v.v.)
+  nameEffect: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
+
+  // Số lượt thích
+  likeCount: {
+    type: DataTypes.INTEGER,
+    defaultValue: 0
+  },
+
+  // Đánh dấu comment nổi bật
+  isPinned: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false
+  },
+
+  // ID comment cha (reply)
+  replyTo: {
+    type: DataTypes.INTEGER,
+    allowNull: true
+  }
+
+}, {
+  timestamps: true
+});
+
+// Tạo liên kết với User
+Comment.belongsTo(User, { foreignKey: "userId" });
+User.hasMany(Comment, { foreignKey: "userId" });
