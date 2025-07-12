@@ -1,6 +1,8 @@
 import express from "express";
 import bcrypt from "bcryptjs";
 import { User } from "../models/User.js";
+import { FollowedComic } from "../models/FollowedComic.js";
+import { ReadingHistory } from "../models/ReadingHistory.js";
 import auth from "../middleware/auth.js";
 
 const router = express.Router();
@@ -32,14 +34,11 @@ router.post("/follow", auth, async (req, res) => {
   const { slug } = req.body;
   if (!slug) return res.status(400).json({ message: "Thiếu slug truyện" });
 
-  const user = await User.findByPk(req.user.id);
-  if (!user) return res.status(404).json({ message: "Không tìm thấy tài khoản" });
-
-  let followed = user.followedComics || [];
-  if (!followed.includes(slug)) followed.push(slug);
-  await user.update({ followedComics: followed });
-
-  res.json({ success: true, followedComics: followed });
+  const exist = await FollowedComic.findOne({ where: { userId: req.user.id, comicSlug: slug } });
+  if (!exist) {
+    await FollowedComic.create({ userId: req.user.id, comicSlug: slug });
+  }
+  res.json({ success: true });
 });
 
 // Bỏ theo dõi
@@ -47,29 +46,20 @@ router.post("/unfollow", auth, async (req, res) => {
   const { slug } = req.body;
   if (!slug) return res.status(400).json({ message: "Thiếu slug truyện" });
 
-  const user = await User.findByPk(req.user.id);
-  if (!user) return res.status(404).json({ message: "Không tìm thấy tài khoản" });
-
-  const followed = (user.followedComics || []).filter(s => s !== slug);
-  await user.update({ followedComics: followed });
-
-  res.json({ success: true, followedComics: followed });
+  await FollowedComic.destroy({ where: { userId: req.user.id, comicSlug: slug } });
+  res.json({ success: true });
 });
 
 // Danh sách theo dõi
 router.get("/followed", auth, async (req, res) => {
-  const user = await User.findByPk(req.user.id);
-  if (!user) return res.status(404).json({ message: "Không tìm thấy tài khoản" });
-  res.json({ followedComics: user.followedComics || [] });
+  const comics = await FollowedComic.findAll({ where: { userId: req.user.id } });
+  res.json({ followedComics: comics.map(c => c.comicSlug) });
 });
 
 // Kiểm tra đang theo dõi
 router.get("/is-following/:slug", auth, async (req, res) => {
-  const user = await User.findByPk(req.user.id);
-  if (!user) return res.status(404).json({ message: "Không tìm thấy tài khoản" });
-
-  const isFollowing = (user.followedComics || []).includes(req.params.slug);
-  res.json({ isFollowing });
+  const exist = await FollowedComic.findOne({ where: { userId: req.user.id, comicSlug: req.params.slug } });
+  res.json({ isFollowing: !!exist });
 });
 
 // Lưu lịch sử đọc
@@ -77,34 +67,37 @@ router.post("/history", auth, async (req, res) => {
   const { slug, chapter } = req.body;
   if (!slug || !chapter) return res.status(400).json({ message: "Thiếu slug hoặc chapter" });
 
-  const user = await User.findByPk(req.user.id);
-  if (!user) return res.status(404).json({ message: "Không tìm thấy tài khoản" });
+  // Tìm hoặc tạo bản ghi lịch sử đọc cho user + truyện
+  const [history, created] = await ReadingHistory.findOrCreate({
+    where: { userId: req.user.id, comicSlug: slug },
+    defaults: { chapter, updatedAt: new Date() }
+  });
 
-  let history = user.readingHistory || [];
-
-  const idx = history.findIndex(h => h.slug === slug);
-  if (idx !== -1) {
-    // Cập nhật chương mới nếu lớn hơn
+  if (!created) {
+    // Cập nhật nếu chương mới lớn hơn
     const parseNum = ch => parseFloat(String(ch).replace(/[^\d.]/g, "")) || 0;
-    if (parseNum(chapter) >= parseNum(history[idx].chapter)) {
-      history[idx].chapter = chapter;
-      history[idx].updatedAt = new Date();
+    if (parseNum(chapter) >= parseNum(history.chapter)) {
+      history.chapter = chapter;
+      history.updatedAt = new Date();
+      await history.save();
     }
-  } else {
-    history.unshift({ slug, chapter, updatedAt: new Date() });
   }
-  history = history.slice(0, 100);
 
-  await user.update({ readingHistory: history });
-
-  res.json({ success: true, readingHistory: history });
+  res.json({ success: true });
 });
 
-// Lấy lịch sử đọc
+// Lấy lịch sử đọc (chỉ trả về 1 bản ghi cho mỗi truyện)
 router.get("/history", auth, async (req, res) => {
-  const user = await User.findByPk(req.user.id);
-  if (!user) return res.status(404).json({ message: "Không tìm thấy tài khoản" });
-  res.json({ readingHistory: user.readingHistory || [] });
+  const history = await ReadingHistory.findAll({
+    where: { userId: req.user.id },
+    order: [["updatedAt", "DESC"]]
+  });
+  // Không cần filter vì mỗi userId + comicSlug chỉ có 1 bản ghi
+  res.json({ readingHistory: history.map(h => ({
+    slug: h.comicSlug,
+    chapter: h.chapter,
+    updatedAt: h.updatedAt
+  })) });
 });
 
 // Lấy thông tin tài khoản
@@ -216,3 +209,4 @@ router.post("/role", auth, isAdmin, async (req, res) => {
 });
 
 export default router;
+
