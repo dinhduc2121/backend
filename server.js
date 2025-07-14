@@ -28,12 +28,13 @@ app.use(compression());
 app.use(
   cors({
     origin: [
-      "http://localhost:5173",
-      "http://localhost:5174",
-      "https://truyentranh-six.vercel.app",
-      "https://mongtruyen-lalatina.vercel.app",
-      "https://mongtruyen-git-main-lalatina.vercel.app",
-    ],
+  "http://localhost:5173",
+  "http://localhost:5174",
+  "https://truyentranh-six.vercel.app",
+  "https://mongtruyen-lalatina.vercel.app",
+  "https://mongtruyen-git-main-lalatina.vercel.app",
+  "https://mongtruyen.vercel.app",
+],
     methods: ["GET", "POST", "PUT", "DELETE"],
     allowedHeaders: ["Content-Type", "Authorization"],
   })
