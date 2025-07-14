@@ -4,6 +4,8 @@ import { User } from "../models/User.js";
 import { FollowedComic } from "../models/FollowedComic.js";
 import { ReadingHistory } from "../models/ReadingHistory.js";
 import auth from "../middleware/auth.js";
+import { Comic } from "../models/Comic.js";
+
 
 const router = express.Router();
 
@@ -28,27 +30,73 @@ function isAdmin(req, res, next) {
   if (req.user.role !== "admin") return res.status(403).json({ message: "Không có quyền admin" });
   next();
 }
-
-// Theo dõi truyện
 router.post("/follow", auth, async (req, res) => {
-  const { slug } = req.body;
-  if (!slug) return res.status(400).json({ message: "Thiếu slug truyện" });
+  const { slug, name } = req.body; // THÊM name
+  if (!slug) return res.status(400).json({ error: "Thiếu slug" });
 
-  const exist = await FollowedComic.findOne({ where: { userId: req.user.id, comicSlug: slug } });
-  if (!exist) {
-    await FollowedComic.create({ userId: req.user.id, comicSlug: slug });
+  try {
+    const exist = await FollowedComic.findOne({
+      where: { userId: req.user.id, comicSlug: slug }
+    });
+
+    if (exist) {
+      return res.status(400).json({ error: "Bạn đã theo dõi truyện này" });
+    }
+
+    await FollowedComic.create({
+      userId: req.user.id,
+      comicSlug: slug
+    });
+
+    let comic = await Comic.findOne({ where: { slug } });
+    if (!comic) {
+      if (!name) return res.status(400).json({ error: "Thiếu name để tạo mới comic" });
+      comic = await Comic.create({
+        slug,
+        name,
+        followers: 1
+      });
+    } else {
+      comic.followers += 1;
+      await comic.save();
+    }
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error("Lỗi follow:", err);
+    res.status(500).json({ error: "Lỗi server" });
   }
-  res.json({ success: true });
 });
 
 // Bỏ theo dõi
 router.post("/unfollow", auth, async (req, res) => {
   const { slug } = req.body;
-  if (!slug) return res.status(400).json({ message: "Thiếu slug truyện" });
+  if (!slug) return res.status(400).json({ error: "Thiếu slug" });
 
-  await FollowedComic.destroy({ where: { userId: req.user.id, comicSlug: slug } });
-  res.json({ success: true });
+  try {
+    const exist = await FollowedComic.findOne({
+      where: { userId: req.user.id, comicSlug: slug }
+    });
+
+    if (!exist) {
+      return res.status(400).json({ error: "Bạn chưa theo dõi truyện này" });
+    }
+
+    await exist.destroy();
+
+    let comic = await Comic.findOne({ where: { slug } });
+    if (comic && comic.followers > 0) {
+      comic.followers -= 1;
+      await comic.save();
+    }
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error("Lỗi unfollow:", err);
+    res.status(500).json({ error: "Lỗi server" });
+  }
 });
+
 
 // Danh sách theo dõi
 router.get("/followed", auth, async (req, res) => {
@@ -207,6 +255,20 @@ router.post("/role", auth, isAdmin, async (req, res) => {
   await user.update({ role });
   res.json({ success: true, role });
 });
+
+// routers/user.js
+router.get('/me', auth, async (req, res) => {
+  try {
+    const user = await User.findByPk(req.user.id, {
+      attributes: ['id', 'username', 'linhThach'],
+    });
+    res.json({ success: true, user });
+  } catch (err) {
+    console.error('Lỗi lấy thông tin user:', err);
+    res.status(500).json({ message: 'Lỗi server' });
+  }
+});
+
 
 export default router;
 
